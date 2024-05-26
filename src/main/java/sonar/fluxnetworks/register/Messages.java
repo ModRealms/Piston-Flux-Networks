@@ -345,7 +345,6 @@ public class Messages {
 
         looper.execute(() -> {
             final ServerPlayer p = player.get();
-            System.out.println(p.getUUID());
             if (p == null) {
                 return;
             }

@@ -72,9 +72,6 @@ public class FluxNetworkData extends SavedData {
             data = level.getDataStorage()
                     .computeIfAbsent(FluxNetworkData::new, FluxNetworkData::new, NETWORK_DATA);
 
-            data.mNetworks.forEach((i, n) -> {
-                System.out.println(n.mName);
-            });
             FluxNetworks.LOGGER.info("FluxNetworkData has been successfully loaded for: {}", player.getStringUUID());
 
         return data;
@@ -84,9 +81,6 @@ public class FluxNetworkData extends SavedData {
     public static FluxNetworkData getInstance(ServerLevel level) {
             data = level.getDataStorage()
                     .computeIfAbsent(FluxNetworkData::new, FluxNetworkData::new, NETWORK_DATA);
-        data.mNetworks.forEach((i, n) -> {
-            System.out.println(n.mName);
-        });
 
         return data;
     }
@@ -100,8 +94,6 @@ public class FluxNetworkData extends SavedData {
     @Nonnull
     public static FluxNetwork getNetwork(Player player, int id) {
         FluxNetwork network = getInstance(player).mNetworks.getOrDefault(id, FluxNetwork.INVALID);
-        System.out.println(network.getNetworkID());
-        System.out.println(network.mName);
         return network;
     }
 
@@ -113,8 +105,7 @@ public class FluxNetworkData extends SavedData {
     @Nonnull
     public static FluxNetwork getNetwork(ServerLevel level, int id) {
         FluxNetwork network = getInstance(level).mNetworks.getOrDefault(id, FluxNetwork.INVALID);
-        System.out.println(network.getNetworkID());
-        System.out.println(network.mName);
+
         return network;
     }
 
