@@ -137,6 +137,18 @@ public class Messages {
         }
     }
 
+    @Nonnull
+    private static FriendlyByteBuf updateConnections(FluxNetwork network, List<CompoundTag> tags) {
+        var buf = Channel.buffer(S2C_UPDATE_CONNECTIONS);
+        buf.writeVarInt(network.getNetworkID());
+        buf.writeVarInt(tags.size());
+        for (CompoundTag tag : tags) {
+            buf.writeNbt(tag);
+        }
+        return buf;
+    }
+
+
     /**
      * Variation of {@link #updateNetwork(Collection, byte)} that updates only one network.
      */
@@ -149,17 +161,6 @@ public class Messages {
         final var tag = new CompoundTag();
         network.writeCustomTag(tag, type);
         buf.writeNbt(tag);
-        return buf;
-    }
-
-    @Nonnull
-    private static FriendlyByteBuf updateConnections(FluxNetwork network, List<CompoundTag> tags) {
-        var buf = Channel.buffer(S2C_UPDATE_CONNECTIONS);
-        buf.writeVarInt(network.getNetworkID());
-        buf.writeVarInt(tags.size());
-        for (CompoundTag tag : tags) {
-            buf.writeNbt(tag);
-        }
         return buf;
     }
 
@@ -178,14 +179,14 @@ public class Messages {
     }
 
     @Nonnull
-    private static FriendlyByteBuf updateNetwork(int[] networkIDs, byte type) {
+    private static FriendlyByteBuf updateNetwork(Player player, int[] networkIDs, byte type) {
         var buf = Channel.buffer(S2C_UPDATE_NETWORK);
         buf.writeByte(type);
         buf.writeVarInt(networkIDs.length);
         for (var networkID : networkIDs) {
             buf.writeVarInt(networkID);
             final var tag = new CompoundTag();
-            FluxNetworkData.getNetwork(networkID).writeCustomTag(tag, type);
+            FluxNetworkData.getNetwork(player, networkID).writeCustomTag(tag, type);
             buf.writeNbt(tag);
         }
         return buf;
@@ -326,6 +327,7 @@ public class Messages {
     private static void onCreateNetwork(FriendlyByteBuf payload, Supplier<ServerPlayer> player,
                                         BlockableEventLoop<?> looper) {
         // decode
+        System.out.println("Create network req");
         final int token = payload.readByte();
         final String name = payload.readUtf(256);
         final int color = payload.readInt();
@@ -343,6 +345,7 @@ public class Messages {
 
         looper.execute(() -> {
             final ServerPlayer p = player.get();
+            System.out.println(p.getUUID());
             if (p == null) {
                 return;
             }
@@ -351,8 +354,10 @@ public class Messages {
                 response(token, FluxConstants.REQUEST_CREATE_NETWORK, FluxConstants.RESPONSE_REJECT, p);
                 return;
             }
-            if (FluxNetworkData.getInstance().createNetwork(p, name, color, security, password) != null) {
+            System.out.println("before create network");
+            if (FluxNetworkData.getInstance(p).createNetwork(p, name, color, security, password) != null) {
                 response(token, FluxConstants.REQUEST_CREATE_NETWORK, FluxConstants.RESPONSE_SUCCESS, p);
+                System.out.println("Created network");
             } else {
                 response(token, FluxConstants.REQUEST_CREATE_NETWORK, FluxConstants.RESPONSE_NO_SPACE, p);
             }
@@ -373,10 +378,10 @@ public class Messages {
             if (p == null) {
                 return;
             }
-            final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+            final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
             if (network.isValid()) {
                 if (network.getPlayerAccess(p).canDelete()) {
-                    FluxNetworkData.getInstance().deleteNetwork(network);
+                    FluxNetworkData.getInstance(p).deleteNetwork(network);
                     response(token, FluxConstants.REQUEST_DELETE_NETWORK, FluxConstants.RESPONSE_SUCCESS, p);
                 } else {
                     response(token, FluxConstants.REQUEST_DELETE_NETWORK, FluxConstants.RESPONSE_NO_OWNER, p);
@@ -414,7 +419,7 @@ public class Messages {
                     response(token, FluxConstants.REQUEST_TILE_NETWORK, FluxConstants.RESPONSE_REJECT, p);
                     return;
                 }
-                final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+                final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
                 if (e.getDeviceType().isController() && network.getLogicalDevices(FluxNetwork.CONTROLLER).size() > 0) {
                     response(token, FluxConstants.REQUEST_TILE_NETWORK, FluxConstants.RESPONSE_HAS_CONTROLLER, p);
                     return;
@@ -464,7 +469,7 @@ public class Messages {
             if (p == null) {
                 return;
             }
-            final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+            final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
             boolean reject = checkTokenFailed(token, p, network);
             if (reject) {
                 response(token, FluxConstants.REQUEST_EDIT_NETWORK, FluxConstants.RESPONSE_REJECT, p);
@@ -522,7 +527,7 @@ public class Messages {
                 } else if (networkIDs.length == 1) {
                     // non-super admin can only request one network update
                     int networkID = networkIDs[0];
-                    final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+                    final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
                     // admin configurator is decoration, check access permission
                     if (!(menu.mProvider instanceof ItemAdminConfigurator.Provider)) {
                         // in this case, player can access this BlockEntity or FluxConfigurator
@@ -540,7 +545,7 @@ public class Messages {
                 response(token, FluxConstants.REQUEST_UPDATE_NETWORK, FluxConstants.RESPONSE_REJECT, p);
             } else {
                 // this packet always triggers an event, so no response
-                sChannel.sendToPlayer(updateNetwork(networkIDs, type), p);
+                sChannel.sendToPlayer(updateNetwork(p, networkIDs, type), p);
             }
         });
     }
@@ -561,7 +566,7 @@ public class Messages {
             if (p == null) {
                 return;
             }
-            final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+            final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
             boolean reject = checkTokenFailed(token, p, network);
             if (reject) {
                 response(token, FluxConstants.REQUEST_EDIT_MEMBER, FluxConstants.RESPONSE_REJECT, p);
@@ -600,7 +605,7 @@ public class Messages {
             if (p == null) {
                 return;
             }
-            final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+            final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
             boolean reject = checkTokenFailed(token, p, network);
             if (reject) {
                 response(token, FluxConstants.REQUEST_EDIT_CONNECTION, FluxConstants.RESPONSE_REJECT, p);
@@ -663,7 +668,7 @@ public class Messages {
             }
             final FluxPlayer fp = FluxUtils.get(p, FluxPlayer.FLUX_PLAYER);
             if (fp != null) {
-                final FluxNetwork network = FluxNetworkData.getNetwork(wirelessNetwork);
+                final FluxNetwork network = FluxNetworkData.getNetwork(p, wirelessNetwork);
                 // allow set to invalid
                 boolean reject = network.isValid() &&
                         (checkTokenFailed(token, p, network) || network.getMemberByUUID(p.getUUID()) == null);
@@ -707,7 +712,7 @@ public class Messages {
             if (p == null) {
                 return;
             }
-            final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+            final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
             boolean reject = checkTokenFailed(token, p, network);
             if (reject) {
                 response(token, FluxConstants.REQUEST_DISCONNECT, FluxConstants.RESPONSE_REJECT, p);
@@ -750,7 +755,7 @@ public class Messages {
             if (p == null) {
                 return;
             }
-            final FluxNetwork network = FluxNetworkData.getNetwork(networkID);
+            final FluxNetwork network = FluxNetworkData.getNetwork(p, networkID);
             boolean reject = checkTokenFailed(token, p, network);
             if (reject) {
                 response(token, FluxConstants.REQUEST_UPDATE_CONNECTION, FluxConstants.RESPONSE_REJECT, p);

@@ -149,7 +149,7 @@ public abstract class TileFluxDevice extends BlockEntity implements IFluxDevice 
     }
 
     protected void onFirstTick() {
-        connect(FluxNetworkData.getNetwork(mNetworkID));
+        connect(FluxNetworkData.getNetwork((ServerLevel) this.level, mNetworkID));
     }
 
     /**

@@ -41,7 +41,7 @@ public enum FluxConfigurationType {
         }
         if (this == NETWORK) {
             if (device.getDeviceType() != FluxDeviceType.CONTROLLER) {
-                FluxNetwork network = FluxNetworkData.getNetwork(tag.getInt(key));
+                FluxNetwork network = FluxNetworkData.getNetwork(player, tag.getInt(key));
                 // we can connect to an invalid network (i.e. disconnect)
                 if (!network.isValid() || network.canPlayerAccess(player)) {
                     if (network.isValid()) {

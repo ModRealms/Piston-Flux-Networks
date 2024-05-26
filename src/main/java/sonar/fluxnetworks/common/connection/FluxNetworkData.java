@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.nbt.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import sonar.fluxnetworks.FluxConfig;
@@ -18,7 +19,9 @@ import sonar.fluxnetworks.register.Messages;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -27,11 +30,11 @@ import java.util.UUID;
  * Only on logical server side. Only on server thread.
  */
 @NotThreadSafe
-public final class FluxNetworkData extends SavedData {
+public class FluxNetworkData extends SavedData {
 
     private static final String NETWORK_DATA = FluxNetworks.MODID + "data";
 
-    private static volatile FluxNetworkData data;
+    private static FluxNetworkData data;
 
     private static final String NETWORKS = "networks";
     //private static final String TICKETS = "tickets";
@@ -63,32 +66,66 @@ public final class FluxNetworkData extends SavedData {
     }
 
     @Nonnull
-    public static FluxNetworkData getInstance() {
-        if (data == null) {
-            ServerLevel level = ServerLifecycleHooks.getCurrentServer().overworld();
+    public static FluxNetworkData getInstance(Player player) {
+
+            ServerLevel level = (ServerLevel) player.level();
             data = level.getDataStorage()
                     .computeIfAbsent(FluxNetworkData::new, FluxNetworkData::new, NETWORK_DATA);
-            FluxNetworks.LOGGER.debug("FluxNetworkData has been successfully loaded");
-        }
+
+            data.mNetworks.forEach((i, n) -> {
+                System.out.println(n.mName);
+            });
+            FluxNetworks.LOGGER.info("FluxNetworkData has been successfully loaded for: {}", player.getStringUUID());
+
+        return data;
+    }
+
+    @Nonnull
+    public static FluxNetworkData getInstance(ServerLevel level) {
+            data = level.getDataStorage()
+                    .computeIfAbsent(FluxNetworkData::new, FluxNetworkData::new, NETWORK_DATA);
+        data.mNetworks.forEach((i, n) -> {
+            System.out.println(n.mName);
+        });
+
         return data;
     }
 
     // called when the server instance changed, e.g. switching single player saves
     public static void release() {
-        if (data != null) {
-            data = null;
-            FluxNetworks.LOGGER.debug("FluxNetworkData has been unloaded");
-        }
+        data = null;
+        FluxNetworks.LOGGER.debug("FluxNetworkData has been unloaded");
     }
 
     @Nonnull
-    public static FluxNetwork getNetwork(int id) {
-        return getInstance().mNetworks.getOrDefault(id, FluxNetwork.INVALID);
+    public static FluxNetwork getNetwork(Player player, int id) {
+        FluxNetwork network = getInstance(player).mNetworks.getOrDefault(id, FluxNetwork.INVALID);
+        System.out.println(network.getNetworkID());
+        System.out.println(network.mName);
+        return network;
     }
 
     @Nonnull
+    public static Collection<FluxNetwork> getAllNetworks(Player player) {
+        return getInstance(player).mNetworks.values();
+    }
+
+    @Nonnull
+    public static FluxNetwork getNetwork(ServerLevel level, int id) {
+        FluxNetwork network = getInstance(level).mNetworks.getOrDefault(id, FluxNetwork.INVALID);
+        System.out.println(network.getNetworkID());
+        System.out.println(network.mName);
+        return network;
+    }
+
+    @Nonnull
+    @Deprecated
     public static Collection<FluxNetwork> getAllNetworks() {
-        return getInstance().mNetworks.values();
+        List<FluxNetwork> list = new ArrayList<>();
+        ServerLifecycleHooks.getCurrentServer().getAllLevels().forEach(level -> {
+            list.addAll(getInstance(level).mNetworks.values());
+        });
+        return list;
     }
 
     /*

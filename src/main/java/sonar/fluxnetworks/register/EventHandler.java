@@ -32,6 +32,7 @@ import sonar.fluxnetworks.common.util.FluxCommands;
 import sonar.fluxnetworks.common.util.FluxUtils;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 
 @Mod.EventBusSubscriber(modid = FluxNetworks.MODID)
@@ -145,9 +146,23 @@ public class EventHandler {
     @SubscribeEvent
     public static void onPlayerJoined(@Nonnull PlayerEvent.PlayerLoggedInEvent event) {
         // this event only fired on server
+
+        // Piston: This technically tries looking for overworld networks, which there are none.
         Channel.get().sendToPlayer(Messages.updateNetwork(
-                FluxNetworkData.getAllNetworks(), FluxConstants.NBT_NET_BASIC), event.getEntity());
+                FluxNetworkData.getAllNetworks(event.getEntity()), FluxConstants.NBT_NET_ALL_CONNECTIONS), event.getEntity());
+        Channel.get().sendToPlayer(Messages.updateNetwork(
+                FluxNetworkData.getAllNetworks(event.getEntity()), FluxConstants.NBT_NET_BASIC), event.getEntity());
         Messages.syncCapability(event.getEntity());
+    }
+
+    @SubscribeEvent
+    public static void onPlayerWorldJoin(@Nonnull PlayerEvent.PlayerChangedDimensionEvent event) {
+        // Piston: Networks is location-based. We will send them the network information when they reach their instance, so we then have their instance networks.
+        Collection<FluxNetwork> networks = FluxNetworkData.getAllNetworks(event.getEntity());
+        Channel.get().sendToPlayer(Messages.updateNetwork(
+                networks, FluxConstants.NBT_NET_ALL_CONNECTIONS), event.getEntity());
+        Channel.get().sendToPlayer(Messages.updateNetwork(
+                networks, FluxConstants.NBT_NET_BASIC), event.getEntity());
     }
 
     @SubscribeEvent
